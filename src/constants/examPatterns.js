@@ -1,4 +1,4 @@
-// examPatterns.js — الأنماط التسعة لتوليد الأسئلة
+// src/constants/examPatterns.js — 8 أنماط (بعد حذف نصف السنة)
 
 export const EXAM_PATTERNS = [
   {
@@ -6,12 +6,6 @@ export const EXAM_PATTERNS = [
     name: 'وزاري',
     description: 'أسئلة بأسلوب وزارة التربية العراقية',
     icon: 'GraduationCap',
-  },
-  {
-    id: 'midterm',
-    name: 'نصف السنة',
-    description: 'يغطي الفصول الأولى من المادة',
-    icon: 'CalendarDays',
   },
   {
     id: 'mcq',
@@ -57,5 +51,4 @@ export const EXAM_PATTERNS = [
   },
 ]
 
-// معرّفات الأنماط الصالحة للتحقق
 export const VALID_PATTERN_IDS = EXAM_PATTERNS.map((p) => p.id)

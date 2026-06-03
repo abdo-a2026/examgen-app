@@ -85,19 +85,9 @@ export default function SummaryPage() {
 
   // ─── التوليد الرئيسي ─────────────────────────────────────────────────────
   const handleGenerate = async () => {
-    // التحقق الأساسي
-    if (!requestName.trim()) {
-      toast.error('أدخل اسماً للطلب')
-      return
-    }
-    if (!pdfBase64) {
-      toast.error('ارفع ملف PDF أولاً')
-      return
-    }
-    if (!user?.uid) {
-      toast.error('يجب تسجيل الدخول')
-      return
-    }
+    if (!requestName.trim()) { toast.error('أدخل اسماً للطلب'); return }
+    if (!pdfBase64)           { toast.error('ارفع ملف PDF أولاً'); return }
+    if (!user?.uid)           { toast.error('يجب تسجيل الدخول'); return }
 
     setError(null)
     setStage(STAGE.LOADING)
@@ -121,9 +111,9 @@ export default function SummaryPage() {
       // 2. توليد الملخص
       const targetWords = selectedPages * 280
       const options = {
-        pages:       selectedPages,
+        pages:      selectedPages,
         targetWords,
-        subject:     requestName.trim(),
+        subject:    requestName.trim(),
       }
 
       let result
@@ -141,6 +131,17 @@ export default function SummaryPage() {
         console.warn('incrementUsage error (non-fatal):', e)
       }
 
+      // ── الإصلاح 7: تحديث authStore فوراً ──────────────────────────────
+      try {
+        const currentUsage = useAuthStore.getState().user?.dailyUsage || {}
+        useAuthStore.getState().updateUsage({
+          count:   (currentUsage.count || 0) + 1,
+          resetAt: currentUsage.resetAt,
+        })
+      } catch (e) {
+        console.warn('updateUsage warn (non-fatal):', e)
+      }
+
       // 4. حفظ الطلب في Firestore
       try {
         const saved = await saveRequest(user.uid, {
@@ -149,7 +150,6 @@ export default function SummaryPage() {
           options: { pages: selectedPages, targetWords },
           result,
         })
-        // إضافة للـ store فوراً بدون انتظار Firestore
         addRequest({
           id:        saved,
           name:      requestName.trim(),
@@ -208,10 +208,9 @@ export default function SummaryPage() {
           </p>
         </div>
 
-        {/* ══════════════════════════════════════════════
-            مرحلة النموذج
-        ══════════════════════════════════════════════ */}
         <AnimatePresence mode="wait">
+
+          {/* ══ مرحلة النموذج ══ */}
           {stage === STAGE.FORM && (
             <motion.div
               key="form"
@@ -221,7 +220,6 @@ export default function SummaryPage() {
               transition={{ duration: 0.3 }}
               className="flex flex-col gap-5"
             >
-              {/* اسم الطلب */}
               <SectionCard title="اسم الطلب">
                 <input
                   type="text"
@@ -231,18 +229,17 @@ export default function SummaryPage() {
                   maxLength={80}
                   className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-colors"
                   style={{
-                    background:   '#0D1117',
-                    border:       '1px solid #30363D',
-                    color:        '#E6EDF3',
-                    fontFamily:   'Noto Sans Arabic, sans-serif',
-                    minHeight:    '48px',
+                    background:  '#0D1117',
+                    border:      '1px solid #30363D',
+                    color:       '#E6EDF3',
+                    fontFamily:  'Noto Sans Arabic, sans-serif',
+                    minHeight:   '48px',
                   }}
-                  onFocus={(e)  => (e.target.style.borderColor = '#FF6B35')}
-                  onBlur={(e)   => (e.target.style.borderColor = '#30363D')}
+                  onFocus={(e) => (e.target.style.borderColor = '#FF6B35')}
+                  onBlur={(e)  => (e.target.style.borderColor = '#30363D')}
                 />
               </SectionCard>
 
-              {/* رفع الملف */}
               <SectionCard title="ملف المادة (PDF)">
                 <FileDropzone
                   onFileSelect={handleFileSelect}
@@ -250,7 +247,6 @@ export default function SummaryPage() {
                 />
               </SectionCard>
 
-              {/* عدد الصفحات */}
               <SectionCard>
                 <PagesSelector
                   selected={selectedPages}
@@ -258,15 +254,10 @@ export default function SummaryPage() {
                 />
               </SectionCard>
 
-              {/* خطأ */}
               {error && (
-                <ErrorMessage
-                  message={error}
-                  onRetry={() => setError(null)}
-                />
+                <ErrorMessage message={error} onRetry={() => setError(null)} />
               )}
 
-              {/* زر التوليد */}
               <motion.button
                 onClick={handleGenerate}
                 disabled={!isFormValid}
@@ -287,9 +278,7 @@ export default function SummaryPage() {
             </motion.div>
           )}
 
-          {/* ══════════════════════════════════════════════
-              مرحلة التحميل
-          ══════════════════════════════════════════════ */}
+          {/* ══ مرحلة التحميل ══ */}
           {stage === STAGE.LOADING && (
             <motion.div
               key="loading"
@@ -302,9 +291,7 @@ export default function SummaryPage() {
             </motion.div>
           )}
 
-          {/* ══════════════════════════════════════════════
-              مرحلة النتيجة
-          ══════════════════════════════════════════════ */}
+          {/* ══ مرحلة النتيجة ══ */}
           {stage === STAGE.RESULT && summaryData && (
             <motion.div
               key="result"
@@ -313,7 +300,6 @@ export default function SummaryPage() {
               transition={{ duration: 0.4 }}
               className="flex flex-col gap-6"
             >
-              {/* أدوات التحكم */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                 <h2
                   className="text-lg font-bold"
@@ -323,7 +309,6 @@ export default function SummaryPage() {
                 </h2>
 
                 <div className="flex items-center gap-3">
-                  {/* إظهار / إخفاء النقاط */}
                   <button
                     onClick={() => setShowKeyPoints((v) => !v)}
                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
@@ -338,7 +323,6 @@ export default function SummaryPage() {
                     {showKeyPoints ? 'إخفاء النقاط الرئيسية' : 'إظهار النقاط الرئيسية'}
                   </button>
 
-                  {/* طلب جديد */}
                   <button
                     onClick={handleReset}
                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
@@ -357,16 +341,10 @@ export default function SummaryPage() {
                 </div>
               </div>
 
-              {/* أزرار التحميل (فوق) */}
               <SummaryDownloader summaryData={summaryData} summaryName={requestName} />
-
-              {/* الملخص */}
               <SummaryViewer summaryData={summaryData} showKeyPoints={showKeyPoints} />
-
-              {/* أزرار التحميل (تحت) */}
               <SummaryDownloader summaryData={summaryData} summaryName={requestName} />
 
-              {/* زر العودة */}
               <button
                 onClick={() => navigate('/dashboard')}
                 className="flex items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors mx-auto"
