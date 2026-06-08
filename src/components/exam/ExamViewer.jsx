@@ -1,551 +1,352 @@
-// src/components/exam/ExamViewer.jsx
-// عرض ورقة الامتحان بتصميم وزاري حقيقي — مُحدَّث للإصلاح 3
+// ExamViewer.jsx — عرض ورقة الامتحان بتصميم وزاري وأنماط متعددة
 
 import React from 'react'
 
-/* ═══════════════════════════════════════════════════════════════
-   دوال مساعدة
-═══════════════════════════════════════════════════════════════ */
+/* ===================== عروض فرعية لكل نمط ===================== */
 
-// Fallback لأسماء المفاتيح المختلفة
-function getQuestionText(q) {
-  return q.text || q.question || q.statement || q.title || ''
-}
-function getQuestionAnswer(q) {
-  return q.modelAnswer || q.answer || q.correctAnswer || ''
-}
-function getQuestionNumber(q, index) {
-  return q.number || q.num || index + 1
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ترويسة الورقة الرسمية
-═══════════════════════════════════════════════════════════════ */
-function ExamHeader({ examData }) {
-  const {
-    subject = '',
-    grade   = '',
-    session = 'امتحان اختبار',
-    time    = 'ثلاث ساعات',
-    totalMarks = 100,
-    instruction = 'الإجابة عن خمسة أسئلة فقط ولكل سؤال 20 درجة',
-  } = examData
-
-  return (
-    <>
-      {/* ── الترويسة ثلاثية الأعمدة ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr auto 1fr',
-        gap: '8px',
-        borderBottom: '2px solid #000',
-        paddingBottom: '10px',
-        marginBottom: '10px',
-        fontSize: '12px',
-        lineHeight: '1.7',
-      }}>
-        {/* يمين */}
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontWeight: 'bold' }}>جمهورية العراق</div>
-          <div>وزارة التربية</div>
-          <div>اللجنة الدائمة للامتحانات العامة</div>
-          <div>{session} / {new Date().getFullYear()}-{new Date().getFullYear() - 1}</div>
-        </div>
-
-        {/* وسط — شعار مبسط */}
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{
-            width: '52px', height: '52px',
-            border: '2px solid #000',
-            borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '10px', fontWeight: 'bold',
-          }}>
-            شعار
-          </div>
-        </div>
-
-        {/* يسار */}
-        <div style={{ textAlign: 'left' }}>
-          <div>الدراسة: الإعدادية</div>
-          {grade && <div>الصف: {grade}</div>}
-          <div>الوقت: {time}</div>
-          <div style={{ fontWeight: 'bold' }}>المادة: {subject || '___________'}</div>
-        </div>
-      </div>
-
-      {/* ── اسم الطالب والرقم الامتحاني ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '16px',
-        border: '1px solid #000',
-        padding: '6px 12px',
-        marginBottom: '8px',
-        fontSize: '12px',
-      }}>
-        <div>الرقم الامتحاني: _______________</div>
-        <div>اسم الطالب: ___________________</div>
-      </div>
-
-      {/* ── ملاحظة ── */}
-      <div style={{
-        border: '1px solid #000',
-        padding: '5px 12px',
-        marginBottom: '16px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        backgroundColor: '#f5f5f5',
-      }}>
-        ملاحظة: {instruction}
-        {totalMarks && <span style={{ marginRight: '16px' }}>مجموع الدرجات: {totalMarks}</span>}
-      </div>
-    </>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   WizariView — وزاري / نصف السنة
-═══════════════════════════════════════════════════════════════ */
+/** WizariView — هيكل وزارة التربية العراقية */
 function WizariView({ questions = [], showAnswers }) {
   return (
     <div>
-      {questions.map((q, qi) => {
-        const qNum = getQuestionNumber(q, qi)
-        const totalMarks = q.totalMarks || q.marks || 20
-
-        // partB subParts أو subQuestions (دعم المفتاحين)
-        const partBSubs = q.partB?.subParts || q.partB?.subQuestions || []
-        const partBInstruction = q.partB?.instruction || q.partB?.text || ''
-
-        return (
-          <div key={qi} style={{ marginBottom: '24px' }}>
-            {/* رقم السؤال والدرجة */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <strong style={{ fontSize: '15px' }}>
-                س{qNum}:
-              </strong>
-              <span style={{ fontSize: '12px', color: '#555' }}>({totalMarks} درجة)</span>
-            </div>
-
-            {/* الجزء A */}
-            {q.partA && (
-              <div style={{ marginBottom: '12px', paddingRight: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <p style={{ fontWeight: '600', marginBottom: '6px' }}>
-                    أ- {q.partA.text || q.partA.question || q.partA.content || ''}
-                  </p>
-                  {q.partA.marks && (
-                    <span style={{ fontSize: '12px', color: '#555' }}>({q.partA.marks} درجة)</span>
-                  )}
-                </div>
-
-                {/* subParts أو subQuestions داخل partA */}
-                {(q.partA.subParts || q.partA.subQuestions || []).map((sub, si) => (
-                  <div key={si} style={{ paddingRight: '24px', marginBottom: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{si + 1}. {sub.text || sub.question || sub.content || ''}</span>
-                      {sub.marks && <span style={{ fontSize: '12px', color: '#555' }}>({sub.marks} درجة)</span>}
-                    </div>
-                    {showAnswers && (sub.answer || sub.modelAnswer) && (
-                      <div style={{ paddingRight: '16px', color: '#166534', borderRight: '3px solid #16a34a', marginTop: '4px', fontSize: '13px' }}>
-                        ✓ {sub.answer || sub.modelAnswer}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* جواب partA المباشر */}
-                {showAnswers && (q.partA.answer || q.partA.modelAnswer) && (
-                  <div style={{ paddingRight: '16px', color: '#166534', borderRight: '3px solid #16a34a', marginTop: '6px', fontSize: '13px' }}>
-                    ✓ {q.partA.answer || q.partA.modelAnswer}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* الجزء B */}
-            {q.partB && (
-              <div style={{ paddingRight: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <p style={{ fontWeight: '600', marginBottom: '8px' }}>
-                    ب- {partBInstruction}
-                  </p>
-                  {q.partB.marks && (
-                    <span style={{ fontSize: '12px', color: '#555' }}>({q.partB.marks} درجة)</span>
-                  )}
-                </div>
-
-                {partBSubs.map((sub, si) => (
-                  <div key={si} style={{ paddingRight: '24px', marginBottom: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{sub.number || si + 1}. {sub.text || sub.question || sub.content || ''}</span>
-                      {sub.marks && <span style={{ fontSize: '12px', color: '#555' }}>({sub.marks} درجة)</span>}
-                    </div>
-                    {showAnswers && (sub.answer || sub.modelAnswer) && (
-                      <div style={{ paddingRight: '16px', color: '#166534', borderRight: '3px solid #16a34a', marginTop: '4px', fontSize: '13px' }}>
-                        ✓ {sub.answer || sub.modelAnswer}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* سؤال بسيط بدون أجزاء */}
-            {!q.partA && !q.partB && (
-              <div style={{ paddingRight: '16px' }}>
-                <p>{getQuestionText(q)}</p>
-                {showAnswers && getQuestionAnswer(q) && (
-                  <div style={{ paddingRight: '16px', color: '#166534', borderRight: '3px solid #16a34a', marginTop: '6px', fontSize: '13px' }}>
-                    ✓ {getQuestionAnswer(q)}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {qi < questions.length - 1 && (
-              <hr style={{ borderTop: '1px dashed #ccc', marginTop: '16px' }} />
-            )}
+      {questions.map((q, qi) => (
+        <div key={qi} className="mb-8">
+          <div className="flex justify-between items-start mb-3">
+            <span className="font-bold text-lg">
+              س{qi + 1}:
+              {q.marks && (
+                <span className="mr-2 text-sm font-normal">({q.marks} درجة)</span>
+              )}
+            </span>
           </div>
-        )
-      })}
-    </div>
-  )
-}
 
-/* ═══════════════════════════════════════════════════════════════
-   MCQView — اختيار من متعدد
-═══════════════════════════════════════════════════════════════ */
-function MCQView({ questions = [], showAnswers }) {
-  return (
-    <div style={{ lineHeight: '2' }}>
-      {questions.map((q, qi) => {
-        const qNum = getQuestionNumber(q, qi)
-        const text = getQuestionText(q)
-        // choices: كائن {أ: ..., ب: ..., ج: ..., د: ...} أو مصفوفة
-        const choices = q.choices || {}
-        const correct = q.correct || q.correctAnswer || ''
-
-        const choiceEntries = typeof choices === 'object' && !Array.isArray(choices)
-          ? Object.entries(choices)
-          : (q.options || []).map((opt, i) => [['أ', 'ب', 'ج', 'د'][i] || i, opt])
-
-        return (
-          <div key={qi} style={{ marginBottom: '16px' }}>
-            <p style={{ fontWeight: '600', marginBottom: '6px' }}>
-              {qNum}. {text}
-              {q.marks && <span style={{ fontSize: '12px', color: '#555', marginRight: '8px' }}>({q.marks} درجة)</span>}
-            </p>
-            <div style={{ paddingRight: '20px' }}>
-              {choiceEntries.map(([label, value], oi) => {
-                const isCorrect = showAnswers && (
-                  correct === label || correct === value
-                )
-                return (
-                  <div key={oi} style={{
-                    padding: '2px 8px',
-                    marginBottom: '3px',
-                    borderRadius: '4px',
-                    backgroundColor: isCorrect ? '#dcfce7' : 'transparent',
-                    color: isCorrect ? '#166534' : 'inherit',
-                    fontWeight: isCorrect ? '600' : 'normal',
-                  }}>
-                    {label}) {value}
-                    {isCorrect && <span style={{ marginRight: '8px' }}>✓</span>}
-                  </div>
-                )
-              })}
-            </div>
-            {showAnswers && q.explanation && (
-              <div style={{ paddingRight: '20px', fontSize: '12px', color: '#555', marginTop: '4px' }}>
-                التفسير: {q.explanation}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   TrueFalseView — صح وخطأ
-═══════════════════════════════════════════════════════════════ */
-function TrueFalseView({ questions = [], showAnswers }) {
-  return (
-    <div>
-      {questions.map((q, qi) => {
-        const qNum = getQuestionNumber(q, qi)
-        const text = getQuestionText(q)
-        // correct: true/false أو 'صح'/'خطأ'
-        const isTrue = q.correct === true || q.correct === 'صح' || q.correct === 'true'
-
-        return (
-          <div key={qi} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '10px' }}>
-            <span style={{ fontWeight: '600', minWidth: '24px' }}>{qNum}.</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <p style={{ flex: 1 }}>{text}</p>
-                <span style={{
-                  border: '1px solid #000',
-                  padding: '2px 16px',
-                  minWidth: '60px',
-                  textAlign: 'center',
-                  fontSize: '13px',
-                  color: '#666',
-                }}>( )</span>
-              </div>
-              {showAnswers && (
-                <div style={{ marginTop: '4px', fontSize: '13px' }}>
-                  {isTrue ? (
-                    <span style={{ color: '#166534', fontWeight: '600' }}>✓ صحيحة</span>
-                  ) : (
-                    <span>
-                      <span style={{ color: '#991b1b', fontWeight: '600' }}>✗ خاطئة</span>
-                      {q.correction && (
-                        <span style={{ color: '#555', marginRight: '8px' }}>— التصحيح: {q.correction}</span>
+          {/* الجزء A */}
+          {q.partA && (
+            <div className="mb-4">
+              <p className="font-semibold mb-2">أ/ {q.partA.question}</p>
+              {q.partA.subQuestions && q.partA.subQuestions.length > 0 && (
+                <ol className="list-none pr-4 space-y-2">
+                  {q.partA.subQuestions.map((sub, si) => (
+                    <li key={si}>
+                      <span className="font-medium">{si + 1}. </span>
+                      {sub.question}
+                      {showAnswers && sub.answer && (
+                        <div className="mt-1 pr-4 text-green-700 border-r-2 border-green-400">
+                          ✓ {sub.answer}
+                        </div>
                       )}
-                    </span>
-                  )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {showAnswers && q.partA.answer && (
+                <div className="mt-2 pr-4 text-green-700 border-r-2 border-green-400">
+                  ✓ {q.partA.answer}
                 </div>
               )}
             </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
+          )}
 
-/* ═══════════════════════════════════════════════════════════════
-   DefinitionsView — تعريفات ومفاهيم
-═══════════════════════════════════════════════════════════════ */
-function DefinitionsView({ questions = [], showAnswers }) {
-  return (
-    <div style={{ lineHeight: '2' }}>
-      {questions.map((q, qi) => {
-        const qNum  = getQuestionNumber(q, qi)
-        const text  = getQuestionText(q)
-        const ans   = getQuestionAnswer(q)
-        const type  = q.type || 'عرّف'
-        const term  = q.term || ''
-
-        return (
-          <div key={qi} style={{ marginBottom: '14px' }}>
-            <p style={{ fontWeight: '600' }}>
-              {qNum}. {type}: {term || text}
-              {q.marks && <span style={{ fontSize: '12px', color: '#555', marginRight: '8px' }}>({q.marks} درجة)</span>}
-            </p>
-            {showAnswers && ans ? (
-              <div style={{ paddingRight: '20px', color: '#166534', borderRight: '3px solid #16a34a', fontSize: '13px', paddingTop: '2px' }}>
-                {ans}
-              </div>
-            ) : (
-              <div style={{ paddingRight: '20px', borderRight: '3px solid #ccc', height: '32px' }} />
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   AnalyticalView — علل وفسّر
-═══════════════════════════════════════════════════════════════ */
-function AnalyticalView({ questions = [], showAnswers }) {
-  return (
-    <div style={{ lineHeight: '2' }}>
-      {questions.map((q, qi) => {
-        const qNum = getQuestionNumber(q, qi)
-        const text = getQuestionText(q)
-        const ans  = getQuestionAnswer(q)
-
-        return (
-          <div key={qi} style={{ marginBottom: '16px' }}>
-            <p style={{ fontWeight: '600' }}>
-              {qNum}. {text}
-              {q.marks && <span style={{ fontSize: '12px', color: '#555', marginRight: '8px' }}>({q.marks} درجة)</span>}
-            </p>
-            {showAnswers && ans ? (
-              <div style={{ paddingRight: '20px', color: '#166534', borderRight: '3px solid #16a34a', fontSize: '13px', lineHeight: '1.8', paddingTop: '2px' }}>
-                {ans}
-              </div>
-            ) : (
-              <div>
-                {[0, 1, 2].map((i) => (
-                  <div key={i} style={{ borderBottom: '1px solid #ccc', height: '28px', marginRight: '20px' }} />
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ComparisonView — جداول مقارنة
-═══════════════════════════════════════════════════════════════ */
-function ComparisonView({ questions = [], showAnswers }) {
-  return (
-    <div>
-      {questions.map((q, qi) => {
-        const qNum = getQuestionNumber(q, qi)
-        const text = getQuestionText(q)
-
-        return (
-          <div key={qi} style={{ marginBottom: '24px' }}>
-            <p style={{ fontWeight: '600', marginBottom: '10px' }}>
-              {qNum}. {text}
-              {q.marks && <span style={{ fontSize: '12px', color: '#555', marginRight: '8px' }}>({q.marks} درجة)</span>}
-            </p>
-            {q.table && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr>
-                    {(q.table.headers || []).map((h, hi) => (
-                      <th key={hi} style={{
-                        border: '1px solid #000',
-                        backgroundColor: '#e5e7eb',
-                        padding: '6px 10px',
-                        textAlign: 'center',
-                        fontWeight: 'bold',
-                      }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(q.table.rows || []).map((row, ri) => (
-                    <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                      {(Array.isArray(row) ? row : [row]).map((cell, ci) => (
-                        <td key={ci} style={{
-                          border: '1px solid #000',
-                          padding: '6px 10px',
-                          textAlign: 'center',
-                        }}>
-                          {showAnswers || ci === 0 ? cell : '...'}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   UniversityView — جامعي
-═══════════════════════════════════════════════════════════════ */
-function UniversityView({ questions = [], showAnswers }) {
-  return (
-    <div>
-      {questions.map((q, qi) => {
-        const qNum = getQuestionNumber(q, qi)
-
-        return (
-          <div key={qi} style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <strong style={{ fontSize: '15px' }}>السؤال {qNum}:</strong>
-              {q.totalMarks && <span style={{ fontSize: '12px', color: '#555' }}>({q.totalMarks} درجة)</span>}
-            </div>
-
-            {q.intro && <p style={{ marginBottom: '10px', color: '#374151' }}>{q.intro}</p>}
-
-            {q.parts && q.parts.length > 0 ? (
-              <div style={{ paddingRight: '16px' }}>
-                {q.parts.map((part, pi) => {
-                  const partText = part.text || part.question || part.content || ''
-                  const partAns  = part.modelAnswer || part.answer || ''
-                  const label    = part.label || ['أ', 'ب', 'ج', 'د'][pi] || `${pi + 1}`
-
-                  return (
-                    <div key={pi} style={{ marginBottom: '14px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <p style={{ fontWeight: '600' }}>{label}. {partText}</p>
-                        {part.marks && <span style={{ fontSize: '12px', color: '#555' }}>({part.marks} درجة)</span>}
-                      </div>
-                      {part.type && <span style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', display: 'block' }}>({part.type})</span>}
-                      {showAnswers && partAns ? (
-                        <div style={{ paddingRight: '16px', color: '#166534', borderRight: '3px solid #16a34a', fontSize: '13px', paddingTop: '2px' }}>
-                          {partAns}
-                        </div>
-                      ) : (
-                        <div>
-                          {[0, 1].map((i) => (
-                            <div key={i} style={{ borderBottom: '1px solid #ccc', height: '28px', marginRight: '16px' }} />
-                          ))}
+          {/* الجزء B */}
+          {q.partB && (
+            <div className="mb-2">
+              <p className="font-semibold mb-2">ب/ {q.partB.question}</p>
+              {q.partB.subQuestions && q.partB.subQuestions.length > 0 && (
+                <ol className="list-none pr-4 space-y-2">
+                  {q.partB.subQuestions.map((sub, si) => (
+                    <li key={si}>
+                      <span className="font-medium">{si + 1}. </span>
+                      {sub.question}
+                      {showAnswers && sub.answer && (
+                        <div className="mt-1 pr-4 text-green-700 border-r-2 border-green-400">
+                          ✓ {sub.answer}
                         </div>
                       )}
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div>
-                <p>{getQuestionText(q)}</p>
-                {showAnswers && getQuestionAnswer(q) && (
-                  <div style={{ paddingRight: '16px', color: '#166534', borderRight: '3px solid #16a34a', fontSize: '13px', marginTop: '6px' }}>
-                    {getQuestionAnswer(q)}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {showAnswers && q.partB.answer && (
+                <div className="mt-2 pr-4 text-green-700 border-r-2 border-green-400">
+                  ✓ {q.partB.answer}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* سؤال بسيط بدون أجزاء */}
+          {!q.partA && !q.partB && q.question && (
+            <div>
+              <p className="mb-2">{q.question}</p>
+              {showAnswers && q.answer && (
+                <div className="mt-2 pr-4 text-green-700 border-r-2 border-green-400">
+                  ✓ {q.answer}
+                </div>
+              )}
+            </div>
+          )}
+
+          {qi < questions.length - 1 && <hr className="mt-6 border-gray-300" />}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** MCQView — اختيار من متعدد */
+function MCQView({ questions = [], showAnswers }) {
+  const optionLabels = ['أ', 'ب', 'ج', 'د']
+
+  return (
+    <div className="space-y-6">
+      {questions.map((q, qi) => (
+        <div key={qi}>
+          <p className="font-semibold mb-3">
+            {qi + 1}. {q.question}
+          </p>
+          <div className="space-y-2 pr-4">
+            {(q.options || []).map((opt, oi) => {
+              const isCorrect = showAnswers && (q.correctIndex === oi || q.correctAnswer === opt)
+              return (
+                <div
+                  key={oi}
+                  className={`flex items-start gap-3 p-2 rounded ${
+                    isCorrect ? 'bg-green-50 text-green-800 font-medium' : ''
+                  }`}
+                >
+                  <span className="font-bold min-w-[20px]">{optionLabels[oi]})</span>
+                  <span>{opt}</span>
+                  {isCorrect && <span className="mr-auto text-green-600">✓</span>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** TrueFalseView — صح وخطأ */
+function TrueFalseView({ questions = [], showAnswers }) {
+  return (
+    <div className="space-y-4">
+      {questions.map((q, qi) => (
+        <div key={qi} className="flex items-start gap-4">
+          <span className="font-semibold min-w-[24px]">{qi + 1}.</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-4">
+              <p className="flex-1">{q.statement || q.question}</p>
+              <span className="border border-gray-400 rounded px-3 py-1 min-w-[60px] text-center text-sm text-gray-500">
+                ( )
+              </span>
+            </div>
+            {showAnswers && (
+              <div className="mt-1">
+                {q.isTrue || q.answer === 'صح' || q.answer === true ? (
+                  <span className="text-green-700 font-medium">✓ صحيحة</span>
+                ) : (
+                  <div>
+                    <span className="text-red-700 font-medium">✗ خاطئة</span>
+                    {q.correction && (
+                      <span className="text-gray-700 mr-2">— التصحيح: {q.correction}</span>
+                    )}
                   </div>
                 )}
               </div>
             )}
-
-            {qi < questions.length - 1 && <hr style={{ borderTop: '1px dashed #ccc', marginTop: '16px' }} />}
           </div>
-        )
-      })}
+        </div>
+      ))}
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   BankView — بنك أسئلة
-═══════════════════════════════════════════════════════════════ */
-function BankView({ sections = [], showAnswers }) {
-  const viewMap = {
-    wizari:      WizariView,
-    mcq:         MCQView,
-    trueFalse:   TrueFalseView,
-    definitions: DefinitionsView,
-    analytical:  AnalyticalView,
-    comparison:  ComparisonView,
-    university:  UniversityView,
+/** DefinitionsView — تعريفات ومفاهيم */
+function DefinitionsView({ questions = [], showAnswers }) {
+  const typeLabels = {
+    define: 'عرّف',
+    list: 'اذكر',
+    name: 'سمِّ',
+    explain: 'اشرح',
+    mention: 'اذكر',
   }
 
   return (
-    <div>
-      {sections.map((section, si) => {
-        // دعم المفتاحين: type من كل question أو من الـ section نفسها
-        const firstQ    = (section.questions || [])[0] || {}
-        const sectionType = section.type || firstQ.type || 'analytical'
-        const SectionView = viewMap[sectionType] || AnalyticalView
+    <div className="space-y-5">
+      {questions.map((q, qi) => (
+        <div key={qi}>
+          <p className="font-semibold">
+            {qi + 1}.{' '}
+            {q.type && typeLabels[q.type] ? typeLabels[q.type] : ''}{' '}
+            {q.term || q.question}:
+          </p>
+          {showAnswers && q.answer && (
+            <div className="mt-2 pr-6 text-green-800 border-r-2 border-green-400 py-1">
+              {q.answer}
+            </div>
+          )}
+          {!showAnswers && (
+            <div className="mt-2 pr-6 border-r-2 border-gray-300 h-10" />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
+/** AnalyticalView — علل وفسّر */
+function AnalyticalView({ questions = [], showAnswers }) {
+  return (
+    <div className="space-y-6">
+      {questions.map((q, qi) => (
+        <div key={qi}>
+          <p className="font-semibold">
+            {qi + 1}. {q.question}
+          </p>
+          {showAnswers && q.answer && (
+            <div className="mt-2 pr-6 text-green-800 border-r-2 border-green-400 leading-relaxed py-1">
+              {q.answer}
+            </div>
+          )}
+          {!showAnswers && (
+            <div className="mt-2 space-y-1">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="border-b border-gray-300 h-7" />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** ComparisonView — جداول مقارنة */
+function ComparisonView({ questions = [], showAnswers }) {
+  return (
+    <div className="space-y-8">
+      {questions.map((q, qi) => (
+        <div key={qi}>
+          <p className="font-semibold mb-3">
+            {qi + 1}. {q.question}
+          </p>
+          {q.table && (
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  {(q.table.headers || []).map((h, hi) => (
+                    <th
+                      key={hi}
+                      className="border border-gray-400 bg-gray-100 p-2 font-bold text-center"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(q.table.rows || []).map((row, ri) => (
+                  <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    {(Array.isArray(row) ? row : [row]).map((cell, ci) => (
+                      <td key={ci} className="border border-gray-400 p-2 text-center">
+                        {showAnswers || ci === 0 ? cell : '...'}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** UniversityView — جامعي */
+function UniversityView({ questions = [], showAnswers }) {
+  const partLabels = ['أ', 'ب', 'ج', 'د', 'هـ']
+
+  return (
+    <div className="space-y-8">
+      {questions.map((q, qi) => (
+        <div key={qi}>
+          <div className="flex justify-between items-baseline mb-3">
+            <p className="font-bold text-base">
+              السؤال {qi + 1}:
+            </p>
+            {q.totalMarks && (
+              <span className="text-sm text-gray-600">({q.totalMarks} درجة)</span>
+            )}
+          </div>
+
+          {q.intro && <p className="mb-3 text-gray-700">{q.intro}</p>}
+
+          {q.parts && q.parts.length > 0 ? (
+            <div className="space-y-4 pr-4">
+              {q.parts.map((part, pi) => (
+                <div key={pi}>
+                  <div className="flex justify-between">
+                    <p className="font-medium">
+                      {partLabels[pi]}. {part.question}
+                    </p>
+                    {part.marks && (
+                      <span className="text-sm text-gray-500">({part.marks} درجة)</span>
+                    )}
+                  </div>
+                  {showAnswers && part.answer && (
+                    <div className="mt-2 pr-6 text-green-800 border-r-2 border-green-400 py-1">
+                      {part.answer}
+                    </div>
+                  )}
+                  {!showAnswers && (
+                    <div className="mt-2 space-y-1">
+                      {[0, 1].map((i) => (
+                        <div key={i} className="border-b border-gray-300 h-7" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <p className="mb-2">{q.question}</p>
+              {showAnswers && q.answer && (
+                <div className="mt-2 pr-4 text-green-800 border-r-2 border-green-400 py-1">
+                  {q.answer}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** BankView — بنك أسئلة (مزيج) */
+function BankView({ sections = [], showAnswers }) {
+  const sectionTypeMap = {
+    wizari: WizariView,
+    mcq: MCQView,
+    trueFalse: TrueFalseView,
+    definitions: DefinitionsView,
+    analytical: AnalyticalView,
+    comparison: ComparisonView,
+    university: UniversityView,
+  }
+
+  return (
+    <div className="space-y-10">
+      {sections.map((section, si) => {
+        const SectionView = sectionTypeMap[section.type] || AnalyticalView
         return (
-          <div key={si} style={{ marginBottom: '28px' }}>
-            <div style={{
-              backgroundColor: '#e5e7eb',
-              borderRadius: '6px',
-              padding: '8px 14px',
-              marginBottom: '14px',
-            }}>
-              <h3 style={{ fontWeight: 'bold', fontSize: '15px', margin: 0 }}>
-                {section.sectionName || section.title || `القسم ${si + 1}`}
-              </h3>
-              {section.marksPerQuestion && (
-                <p style={{ fontSize: '12px', color: '#555', margin: '2px 0 0' }}>
-                  ({section.marksPerQuestion} درجة لكل سؤال)
-                </p>
+          <div key={si}>
+            <div className="bg-gray-200 rounded px-4 py-2 mb-4">
+              <h3 className="font-bold text-lg">{section.title || `القسم ${si + 1}`}</h3>
+              {section.instructions && (
+                <p className="text-sm text-gray-600 mt-1">{section.instructions}</p>
               )}
             </div>
             <SectionView questions={section.questions || []} showAnswers={showAnswers} />
@@ -556,16 +357,28 @@ function BankView({ sections = [], showAnswers }) {
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ExamViewer — المكوّن الرئيسي
-═══════════════════════════════════════════════════════════════ */
+/* ===================== Component الرئيسي ===================== */
+
+/**
+ * ExamViewer — يقرأ examData ويعرض العرض المناسب
+ * props:
+ *   examData (object) — JSON من الباك اند
+ *   showAnswers (bool) — عرض الأجوبة النموذجية
+ */
 export default function ExamViewer({ examData, showAnswers = false }) {
   if (!examData) return null
 
   const {
-    examType = 'wizari',
+    examType,
+    subject,
+    grade,
+    semester,
+    year,
+    duration,
+    totalMarks,
+    instructions,
     questions = [],
-    sections  = [],
+    sections = [],
   } = examData
 
   const renderBody = () => {
@@ -588,10 +401,11 @@ export default function ExamViewer({ examData, showAnswers = false }) {
       case 'bank':
         return <BankView sections={sections} showAnswers={showAnswers} />
       default:
+        // fallback: عرض المحتوى كنص
         return (
-          <pre style={{ fontSize: '12px', color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
             {JSON.stringify(examData, null, 2)}
-          </pre>
+          </div>
         )
     }
   }
@@ -601,37 +415,89 @@ export default function ExamViewer({ examData, showAnswers = false }) {
       id="exam-content"
       dir="rtl"
       style={{
-        fontFamily: "'Noto Sans Arabic', 'Arial', sans-serif",
+        fontFamily: 'Noto Sans Arabic, Arial, sans-serif',
         backgroundColor: '#ffffff',
         color: '#000000',
-        padding: '24px 32px',
-        maxWidth: '794px',
-        margin: '0 auto',
-        lineHeight: '1.8',
-        fontSize: '14px',
+        padding: '40px',
+        minHeight: '297mm',
+        width: '100%',
         boxSizing: 'border-box',
+        lineHeight: '1.8',
       }}
     >
-      {/* ── الترويسة الرسمية ── */}
-      <ExamHeader examData={examData} />
+      {/* ترويسة رسمية */}
+      <div
+        style={{
+          borderBottom: '3px double #000',
+          paddingBottom: '16px',
+          marginBottom: '24px',
+          textAlign: 'center',
+        }}
+      >
+        <p style={{ fontSize: '13px', marginBottom: '4px', color: '#333' }}>
+          وزارة التربية العراقية
+        </p>
+        <h1
+          style={{
+            fontSize: '20px',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+            fontFamily: 'Cairo, sans-serif',
+          }}
+        >
+          {subject ? `امتحان مادة: ${subject}` : 'ورقة الامتحان'}
+        </h1>
 
-      {/* ── جسم الأسئلة ── */}
-      <div style={{ fontSize: '14px' }}>
-        {renderBody()}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '13px',
+            marginTop: '8px',
+            padding: '0 20px',
+          }}
+        >
+          <span>الصف: {grade || '___________'}</span>
+          <span>الفصل: {semester || '___________'}</span>
+          <span>المدة: {duration || '___________'}</span>
+          <span>الدرجة الكاملة: {totalMarks || '___________'}</span>
+        </div>
       </div>
 
-      {/* ── تذييل ── */}
-      <div style={{
-        borderTop: '1px solid #ccc',
-        marginTop: '32px',
-        paddingTop: '12px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        fontSize: '11px',
-        color: '#888',
-      }}>
+      {/* تعليمات عامة */}
+      {instructions && (
+        <div
+          style={{
+            border: '1px solid #ccc',
+            borderRadius: '6px',
+            padding: '12px 16px',
+            marginBottom: '24px',
+            backgroundColor: '#f9f9f9',
+            fontSize: '13px',
+          }}
+        >
+          <p style={{ fontWeight: 'bold', marginBottom: '4px' }}>ملاحظة:</p>
+          <p>{instructions}</p>
+        </div>
+      )}
+
+      {/* جسم الامتحان */}
+      <div style={{ fontSize: '14px' }}>{renderBody()}</div>
+
+      {/* توقيع في النهاية */}
+      <div
+        style={{
+          borderTop: '1px solid #ccc',
+          marginTop: '40px',
+          paddingTop: '16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '12px',
+          color: '#666',
+        }}
+      >
         <span>ExamGen AI — أداة تعليمية</span>
-        <span>{new Date().getFullYear()}</span>
+        <span>{year || new Date().getFullYear()}</span>
       </div>
     </div>
   )

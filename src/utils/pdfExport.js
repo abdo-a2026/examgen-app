@@ -1,23 +1,24 @@
-// src/utils/pdfExport.js
-// تصدير عناصر HTML كـ PDF مع تقسيم صفحات صحيح
+// pdfExport.js — تصدير عنصر HTML كـ PDF
 
 /**
  * exportToPDF
  * @param {string} elementId — id العنصر المراد تصديره
- * @param {string} filename  — اسم الملف بدون .pdf
+ * @param {string} filename — اسم الملف الناتج (بدون .pdf)
  */
 export async function exportToPDF(elementId, filename = 'exam') {
   try {
+    // استيراد ديناميكي لتجنب تحميل المكتبات عند بدء التطبيق
     const html2canvas = (await import('html2canvas')).default
-    const { jsPDF }   = await import('jspdf')
+    const { jsPDF } = await import('jspdf')
 
     const element = document.getElementById(elementId)
     if (!element) {
-      throw new Error(`العنصر "${elementId}" غير موجود`)
+      throw new Error(`العنصر بالمعرّف "${elementId}" غير موجود`)
     }
 
+    // تصوير العنصر
     const canvas = await html2canvas(element, {
-      scale: 2,
+      scale: 2, // دقة أعلى
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
@@ -27,46 +28,55 @@ export async function exportToPDF(elementId, filename = 'exam') {
     })
 
     const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF('p', 'mm', 'a4')
 
-    const pageWidth  = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
+    // إنشاء PDF بحجم A4
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    })
 
-    // حساب نسبة العرض
-    const imgWidth   = pageWidth
-    const imgHeight  = (canvas.height * pageWidth) / canvas.width
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = pdf.internal.pageSize.getHeight()
+    const imgWidth = canvas.width
+    const imgHeight = canvas.height
 
-    let heightLeft = imgHeight
-    let position   = 0
+    // حساب نسبة الحجم
+    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
+    const scaledWidth = imgWidth * ratio
+    const scaledHeight = imgHeight * ratio
 
-    // الصفحة الأولى
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
+    // إذا الصورة أطول من الصفحة — نقسمها لصفحات
+    const pageHeightInPx = pdfHeight / ratio
+    let yOffset = 0
+    let pageNum = 0
 
-    // صفحات إضافية إذا المحتوى طويل
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
+    while (yOffset < imgHeight) {
+      if (pageNum > 0) pdf.addPage()
+
+      // رسم الجزء المناسب من الصورة
+      const sliceHeight = Math.min(pageHeightInPx, imgHeight - yOffset)
+
+      const sliceCanvas = document.createElement('canvas')
+      sliceCanvas.width = imgWidth
+      sliceCanvas.height = sliceHeight
+      const ctx = sliceCanvas.getContext('2d')
+      ctx.drawImage(canvas, 0, -yOffset, imgWidth, imgHeight)
+
+      const sliceData = sliceCanvas.toDataURL('image/png')
+      const sliceScaledHeight = sliceHeight * ratio
+
+      pdf.addImage(sliceData, 'PNG', 0, 0, pdfWidth, sliceScaledHeight)
+
+      yOffset += pageHeightInPx
+      pageNum++
     }
 
-    const cleanName = filename
-      .replace(/[^\u0600-\u06FFa-zA-Z0-9_\- ]/g, '_')
-      .trim() || 'exam'
-    pdf.save(`${cleanName}.pdf`)
+    // تحميل الملف
+    const safeFilename = filename.replace(/[^\u0600-\u06FFa-zA-Z0-9_\- ]/g, '_') || 'exam'
+    pdf.save(`${safeFilename}.pdf`)
   } catch (error) {
     console.error('exportToPDF error:', error)
     throw new Error('فشل تصدير الـ PDF — يرجى المحاولة مجدداً')
   }
-}
-
-// alias للملخص — نفس المنطق بـ elementId مختلف
-export async function exportSummaryToPDF(elementId = 'summary-content', filename = 'summary') {
-  return exportToPDF(elementId, filename)
-}
-
-// alias للأجوبة النموذجية
-export async function exportAnswerSheetToPDF(filename = 'answers') {
-  return exportToPDF('answer-sheet', filename)
 }

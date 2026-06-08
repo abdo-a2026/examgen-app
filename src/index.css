@@ -12,11 +12,10 @@ h1, h2, h3, h4, h5, h6 {
   font-family: 'Cairo', sans-serif;
 }
 
-/* ── الإصلاح 8: Dark Mode هو الوضع الافتراضي ── */
 body {
   direction: rtl;
-  background-color: #0D1117;
-  color: #E6EDF3;
+  background-color: #F8FAFC;
+  color: #1E293B;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -26,32 +25,14 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #161B22;
+  background: #F1F5F9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #30363D;
+  background: #CBD5E1;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #8B949E;
-}
-
-/* ─── انتقالات الصفحة ─── */
-.page-transition-enter {
-  opacity: 0;
-  transform: translateY(8px);
-}
-.page-transition-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 250ms ease, transform 250ms ease;
-}
-.page-transition-exit {
-  opacity: 1;
-}
-.page-transition-exit-active {
-  opacity: 0;
-  transition: opacity 200ms ease;
+  background: #94A3B8;
 }
 
 /* ─── Component Layer ─── */
@@ -59,123 +40,70 @@ body {
 
   /* Buttons */
   .btn-primary {
-    @apply font-medium py-2.5 px-5 rounded-lg
+    @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-700
+           text-white font-medium py-2.5 px-5 rounded-lg
            transition-all duration-200 ease-in-out
            disabled:opacity-50 disabled:cursor-not-allowed
-           focus:outline-none;
-    background-color: #FF6B35;
-    color: #fff;
-    min-height: 48px;
-  }
-  .btn-primary:hover:not(:disabled) {
-    background-color: #e85a24;
+           focus:outline-none focus:ring-2 focus:ring-primary-300;
   }
 
   .btn-secondary {
-    @apply font-medium py-2.5 px-5 rounded-lg
+    @apply bg-secondary-500 hover:bg-secondary-600 active:bg-secondary-700
+           text-white font-medium py-2.5 px-5 rounded-lg
            transition-all duration-200 ease-in-out
            disabled:opacity-50 disabled:cursor-not-allowed
-           focus:outline-none;
-    background-color: #161B22;
-    color: #E6EDF3;
-    border: 1px solid #30363D;
-    min-height: 48px;
+           focus:outline-none focus:ring-2 focus:ring-secondary-300;
   }
-  .btn-secondary:hover:not(:disabled) {
-    border-color: #FF6B35;
-    color: #FF6B35;
+
+  .btn-outline {
+    @apply border border-primary-500 text-primary-600
+           hover:bg-primary-50 active:bg-primary-100
+           font-medium py-2.5 px-5 rounded-lg
+           transition-all duration-200 ease-in-out
+           disabled:opacity-50 disabled:cursor-not-allowed
+           focus:outline-none focus:ring-2 focus:ring-primary-200;
   }
 
   .btn-ghost {
-    @apply font-medium py-2 px-4 rounded-lg
+    @apply text-gray-600 hover:text-gray-900 hover:bg-gray-100
+           font-medium py-2 px-4 rounded-lg
            transition-all duration-200 ease-in-out;
-    color: #8B949E;
-    min-height: 40px;
-  }
-  .btn-ghost:hover {
-    color: #E6EDF3;
-    background-color: rgba(255,255,255,0.05);
   }
 
   /* Cards */
   .card {
-    background-color: #161B22;
-    border: 1px solid #30363D;
-    border-radius: 12px;
-    padding: 20px;
+    @apply bg-white rounded-xl shadow-card border border-gray-100 p-6;
   }
 
   .card-hover {
-    background-color: #161B22;
-    border: 1px solid #30363D;
-    border-radius: 12px;
-    padding: 20px;
-    cursor: pointer;
-    transition: border-color 200ms, box-shadow 200ms;
-  }
-  .card-hover:hover {
-    border-color: #FF6B35;
-    box-shadow: 0 0 0 1px #FF6B3530;
+    @apply card cursor-pointer
+           hover:shadow-card-hover hover:-translate-y-0.5
+           transition-all duration-200 ease-in-out;
   }
 
-  /* Input */
+  /* Form Elements */
   .input {
-    @apply w-full rounded-lg px-4 py-2.5
-           transition-all duration-200
-           focus:outline-none;
-    background-color: #0D1117;
-    border: 1px solid #30363D;
-    color: #E6EDF3;
-    min-height: 48px;
-    font-family: 'Noto Sans Arabic', sans-serif;
-  }
-  .input:focus {
-    border-color: #FF6B35;
-  }
-  .input::placeholder {
-    color: #6E7681;
+    @apply w-full border border-gray-200 rounded-lg px-4 py-2.5
+           text-gray-800 placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400
+           transition-all duration-200;
   }
 
   /* Badges */
   .badge-free {
-    font-size: 11px;
-    font-weight: 500;
-    background: rgba(255,107,53,0.12);
-    color: #FF6B35;
-    padding: 2px 8px;
-    border-radius: 999px;
+    @apply text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full;
   }
 
   .badge-pro {
-    font-size: 11px;
-    font-weight: 500;
-    background: rgba(63,185,80,0.12);
-    color: #3FB950;
-    padding: 2px 8px;
-    border-radius: 999px;
+    @apply text-xs font-medium bg-secondary-100 text-secondary-700 px-2.5 py-0.5 rounded-full;
   }
 
   /* Page wrapper */
   .page-wrapper {
-    min-height: 100vh;
-    background-color: #0D1117;
+    @apply min-h-screen bg-surface;
   }
 
   .container-main {
-    max-width: 64rem;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 32px 16px;
+    @apply max-w-5xl mx-auto px-4 sm:px-6 py-8;
   }
-}
-
-/* ─── المحتوى الأبيض للتصدير (ExamViewer / SummaryViewer) ─── */
-/* ExamViewer و SummaryViewer تُحدد خلفيتهما البيضاء بـ inline styles
-   حتى يعمل html2canvas بشكل صحيح — لا نؤثر عليها من هنا */
-#exam-content,
-#answer-sheet,
-#summary-content {
-  font-family: 'Noto Sans Arabic', 'Arial', sans-serif !important;
-  color: #000 !important;
-  background: #fff !important;
 }

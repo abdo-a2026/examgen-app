@@ -11,7 +11,6 @@ import {
   EyeOff,
   RefreshCw,
   FileText,
-  BookOpen,
 } from 'lucide-react'
 
 import { useAuthStore } from '../store/authStore'
@@ -27,7 +26,6 @@ import ChapterSelector from '../components/exam/ChapterSelector'
 import DifficultySelector from '../components/exam/DifficultySelector'
 import ExamViewer from '../components/exam/ExamViewer'
 import ExamDownloader from '../components/exam/ExamDownloader'
-import AnswerSheet from '../components/exam/AnswerSheet'
 import LoadingMessages from '../components/ui/LoadingMessages'
 import ErrorMessage from '../components/ui/ErrorMessage'
 
@@ -59,18 +57,18 @@ export default function ExamPage() {
   const [error, setError] = useState(null)
   const [examData, setExamData] = useState(null)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [showAnswerSheet, setShowAnswerSheet] = useState(false)
 
-  // validation
+  // validation وضع الزر
   const canGenerate =
     examName.trim().length > 0 &&
     pdfBase64 !== null &&
     selectedPattern !== '' &&
     !loading
 
+  // الحصول على الحد المسموح به للملف
   const maxFileSizeMB = user?.plan === 'subscribed' ? 20 : 10
 
-  const handleFileSelect = (base64, fileName) => {
+  const handleFileSelect = (base64, fileName, sizeMB) => {
     setPdfBase64(base64)
     setPdfFileName(fileName || '')
   }
@@ -80,9 +78,23 @@ export default function ExamPage() {
 
     setError(null)
 
-    if (!examName.trim()) { setError('يرجى إدخال اسم للطلب'); return }
-    if (!pdfBase64)        { setError('يرجى رفع ملف PDF أولاً'); return }
-    if (!selectedPattern)  { setError('يرجى اختيار نمط الأسئلة'); return }
+    // التحقق من اسم الطلب
+    if (!examName.trim()) {
+      setError('يرجى إدخال اسم للطلب')
+      return
+    }
+
+    // التحقق من الملف
+    if (!pdfBase64) {
+      setError('يرجى رفع ملف PDF أولاً')
+      return
+    }
+
+    // التحقق من النمط
+    if (!selectedPattern) {
+      setError('يرجى اختيار نمط الأسئلة')
+      return
+    }
 
     try {
       // 1. التحقق من الرصيد
@@ -94,6 +106,7 @@ export default function ExamPage() {
       }
     } catch (err) {
       console.error('checkQuota error:', err)
+      // نكمل حتى لو فشل checkQuota — الباك اند يتحقق أيضاً
     }
 
     setLoading(true)
@@ -116,17 +129,6 @@ export default function ExamPage() {
         console.warn('incrementUsage warn:', err)
       }
 
-      // ── الإصلاح 7: تحديث authStore فوراً بدون انتظار Firestore ──
-      try {
-        const currentUsage = useAuthStore.getState().user?.dailyUsage || {}
-        useAuthStore.getState().updateUsage({
-          count: (currentUsage.count || 0) + 1,
-          resetAt: currentUsage.resetAt,
-        })
-      } catch (err) {
-        console.warn('updateUsage warn:', err)
-      }
-
       // 4. حفظ الطلب في Firestore
       let savedRequestId = null
       try {
@@ -145,10 +147,11 @@ export default function ExamPage() {
           type: 'exam',
           options,
           result,
-          createdAt: { toDate: () => new Date() },
+          createdAt: new Date(),
         })
       } catch (err) {
         console.warn('saveRequest warn:', err)
+        // لا نوقف التوليد بسبب خطأ الحفظ
       }
 
       setExamData(result)
@@ -165,7 +168,6 @@ export default function ExamPage() {
   const handleNewRequest = () => {
     setExamData(null)
     setShowAnswers(false)
-    setShowAnswerSheet(false)
     setError(null)
     setExamName('')
     setPdfBase64(null)
@@ -203,7 +205,10 @@ export default function ExamPage() {
             العودة
           </button>
 
-          <div className="w-px h-5" style={{ backgroundColor: COLORS.border }} />
+          <div
+            className="w-px h-5"
+            style={{ backgroundColor: COLORS.border }}
+          />
 
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5" style={{ color: COLORS.accent }} />
@@ -217,8 +222,7 @@ export default function ExamPage() {
         </motion.div>
 
         <AnimatePresence mode="wait">
-
-          {/* ========== النموذج ========== */}
+          {/* ========== حالة: النموذج (قبل التوليد) ========== */}
           {!examData && !loading && (
             <motion.div
               key="form"
@@ -228,6 +232,7 @@ export default function ExamPage() {
               transition={{ duration: 0.25 }}
               className="space-y-6"
             >
+              {/* 1. اسم الطلب */}
               <SectionCard title="اسم الطلب" required>
                 <input
                   type="text"
@@ -241,13 +246,19 @@ export default function ExamPage() {
                     border: `2px solid ${examName ? COLORS.accent : COLORS.border}`,
                     color: COLORS.textPrimary,
                     fontFamily: 'Noto Sans Arabic, sans-serif',
-                    minHeight: '48px',
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = COLORS.accent)}
-                  onBlur={(e) => (e.target.style.borderColor = examName ? COLORS.accent : COLORS.border)}
+                  onFocus={(e) =>
+                    (e.target.style.borderColor = COLORS.accent)
+                  }
+                  onBlur={(e) =>
+                    (e.target.style.borderColor = examName
+                      ? COLORS.accent
+                      : COLORS.border)
+                  }
                 />
               </SectionCard>
 
+              {/* 2. الملف */}
               <SectionCard title="ملف المادة" required>
                 <FileDropzone
                   onFileSelect={handleFileSelect}
@@ -256,6 +267,7 @@ export default function ExamPage() {
                 />
               </SectionCard>
 
+              {/* 3. نمط الأسئلة */}
               <SectionCard title="نمط الأسئلة" required>
                 <PatternSelector
                   selected={selectedPattern}
@@ -264,6 +276,7 @@ export default function ExamPage() {
                 />
               </SectionCard>
 
+              {/* 4. الفصول */}
               <SectionCard title="الفصول الدراسية">
                 <ChapterSelector
                   selected={selectedChapters}
@@ -272,6 +285,7 @@ export default function ExamPage() {
                 />
               </SectionCard>
 
+              {/* 5. الصعوبة */}
               <SectionCard title="مستوى الصعوبة">
                 <DifficultySelector
                   selected={selectedDifficulty}
@@ -280,14 +294,23 @@ export default function ExamPage() {
                 />
               </SectionCard>
 
+              {/* رسالة الخطأ */}
               <AnimatePresence>
                 {error && (
-                  <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                    <ErrorMessage message={error} onRetry={() => setError(null)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <ErrorMessage
+                      message={error}
+                      onRetry={() => setError(null)}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
 
+              {/* زر التوليد */}
               <motion.button
                 whileHover={canGenerate ? { scale: 1.02 } : {}}
                 whileTap={canGenerate ? { scale: 0.98 } : {}}
@@ -300,22 +323,31 @@ export default function ExamPage() {
                   backgroundColor: canGenerate ? COLORS.accent : '#2D2D2D',
                   color: canGenerate ? '#fff' : COLORS.textSecondary,
                   cursor: canGenerate ? 'pointer' : 'not-allowed',
-                  boxShadow: canGenerate ? `0 4px 24px ${COLORS.accent}33` : 'none',
+                  boxShadow: canGenerate
+                    ? `0 4px 24px ${COLORS.accent}33`
+                    : 'none',
                 }}
               >
                 <Sparkles className="w-5 h-5" />
                 ولّد الأسئلة الآن
               </motion.button>
 
+              {/* تلميح للمستخدم */}
               {!canGenerate && (
-                <p className="text-center text-xs" style={{ color: COLORS.textSecondary, fontFamily: 'Noto Sans Arabic, sans-serif' }}>
+                <p
+                  className="text-center text-xs"
+                  style={{
+                    color: COLORS.textSecondary,
+                    fontFamily: 'Noto Sans Arabic, sans-serif',
+                  }}
+                >
                   يجب إدخال الاسم + رفع الملف + اختيار النمط
                 </p>
               )}
             </motion.div>
           )}
 
-          {/* ========== التوليد جاري ========== */}
+          {/* ========== حالة: التوليد جاري ========== */}
           {loading && (
             <motion.div
               key="loading"
@@ -328,7 +360,7 @@ export default function ExamPage() {
             </motion.div>
           )}
 
-          {/* ========== النتيجة ========== */}
+          {/* ========== حالة: النتيجة ========== */}
           {examData && !loading && (
             <motion.div
               key="result"
@@ -341,21 +373,28 @@ export default function ExamPage() {
               {/* شريط الأدوات */}
               <div
                 className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl"
-                style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
+                style={{
+                  backgroundColor: COLORS.card,
+                  border: `1px solid ${COLORS.border}`,
+                }}
               >
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5" style={{ color: COLORS.accent }} />
-                  <span className="font-semibold" style={{ color: COLORS.textPrimary, fontFamily: 'Cairo, sans-serif' }}>
+                  <span
+                    className="font-semibold"
+                    style={{ color: COLORS.textPrimary, fontFamily: 'Cairo, sans-serif' }}
+                  >
                     {examName}
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                  {/* زر الأجوبة مدمجة */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {/* زر الأجوبة */}
                   <motion.button
-                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setShowAnswers(!showAnswers)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 min-h-[40px]"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border-2 min-h-[40px]"
                     style={{
                       backgroundColor: showAnswers ? `${COLORS.accent}20` : 'transparent',
                       borderColor: showAnswers ? COLORS.accent : COLORS.border,
@@ -363,32 +402,25 @@ export default function ExamPage() {
                       fontFamily: 'Cairo, sans-serif',
                     }}
                   >
-                    {showAnswers ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    {showAnswers ? 'إخفاء الأجوبة' : 'أجوبة مدمجة'}
-                  </motion.button>
-
-                  {/* زر ورقة الأجوبة المنفصلة */}
-                  <motion.button
-                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowAnswerSheet(!showAnswerSheet)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 min-h-[40px]"
-                    style={{
-                      backgroundColor: showAnswerSheet ? 'rgba(63,185,80,0.12)' : 'transparent',
-                      borderColor: showAnswerSheet ? '#3FB950' : COLORS.border,
-                      color: showAnswerSheet ? '#3FB950' : COLORS.textSecondary,
-                      fontFamily: 'Cairo, sans-serif',
-                    }}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    {showAnswerSheet ? 'إخفاء الأجوبة' : 'ورقة الأجوبة'}
+                    {showAnswers ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                    {showAnswers ? 'إخفاء الأجوبة' : 'عرض الأجوبة'}
                   </motion.button>
 
                   {/* زر طلب جديد */}
                   <motion.button
-                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={handleNewRequest}
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 min-h-[40px]"
-                    style={{ borderColor: COLORS.border, color: COLORS.textSecondary, fontFamily: 'Cairo, sans-serif' }}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border-2 min-h-[40px]"
+                    style={{
+                      borderColor: COLORS.border,
+                      color: COLORS.textSecondary,
+                      fontFamily: 'Cairo, sans-serif',
+                    }}
                   >
                     <RefreshCw className="w-4 h-4" />
                     طلب جديد
@@ -396,43 +428,35 @@ export default function ExamPage() {
                 </div>
               </div>
 
-              {/* أزرار التحميل — أعلى */}
+              {/* أزرار التحميل */}
               <ExamDownloader examName={examName} />
 
               {/* ورقة الامتحان */}
-              <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ border: `1px solid ${COLORS.border}` }}>
+              <div
+                className="rounded-2xl overflow-hidden shadow-2xl"
+                style={{ border: `1px solid ${COLORS.border}` }}
+              >
                 <ExamViewer examData={examData} showAnswers={showAnswers} />
               </div>
 
-              {/* ورقة الأجوبة المنفصلة */}
-              <AnimatePresence>
-                {showAnswerSheet && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <div
-                      className="rounded-2xl overflow-hidden shadow-2xl"
-                      style={{ border: `1px solid #3FB950` }}
-                    >
-                      <AnswerSheet examData={examData} />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* أزرار التحميل — أسفل */}
+              {/* أزرار التحميل (نسخة ثانية أسفل الصفحة) */}
               <ExamDownloader examName={examName} />
 
               {/* زر العودة */}
               <button
                 onClick={() => navigate('/dashboard')}
                 className="w-full py-3 rounded-xl text-sm font-medium transition-colors duration-200 min-h-[48px]"
-                style={{ color: COLORS.textSecondary, fontFamily: 'Noto Sans Arabic, sans-serif', border: `1px solid ${COLORS.border}` }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = COLORS.accent)}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = COLORS.border)}
+                style={{
+                  color: COLORS.textSecondary,
+                  fontFamily: 'Noto Sans Arabic, sans-serif',
+                  border: `1px solid ${COLORS.border}`,
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.borderColor = COLORS.accent)
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.borderColor = COLORS.border)
+                }
               >
                 العودة إلى لوحة التحكم
               </button>
@@ -444,7 +468,7 @@ export default function ExamPage() {
   )
 }
 
-/* ── SectionCard ─────────────────────────────────────────────── */
+/* ============= مكوّن مساعد: SectionCard ============= */
 function SectionCard({ title, required = false, children }) {
   return (
     <motion.div
@@ -452,14 +476,27 @@ function SectionCard({ title, required = false, children }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className="rounded-2xl p-5"
-      style={{ backgroundColor: '#161B22', border: '1px solid #30363D' }}
+      style={{
+        backgroundColor: '#161B22',
+        border: '1px solid #30363D',
+      }}
     >
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="font-bold text-base" style={{ color: '#E6EDF3', fontFamily: 'Cairo, sans-serif' }}>
+        <h2
+          className="font-bold text-base"
+          style={{ color: '#E6EDF3', fontFamily: 'Cairo, sans-serif' }}
+        >
           {title}
         </h2>
         {required && (
-          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FF6B3520', color: '#FF6B35', fontFamily: 'Noto Sans Arabic, sans-serif' }}>
+          <span
+            className="text-xs px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: '#FF6B3520',
+              color: '#FF6B35',
+              fontFamily: 'Noto Sans Arabic, sans-serif',
+            }}
+          >
             مطلوب
           </span>
         )}
