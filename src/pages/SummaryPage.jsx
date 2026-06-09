@@ -1,22 +1,36 @@
+// SummaryPage.jsx — صفحة تلخيص المادة (وضع المنهج + وضع الملف)
+
 import React, { useState } from 'react'
-import { useNavigate }     from 'react-router-dom'
+import { useNavigate }            from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Sparkles, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  ArrowRight, Sparkles, RotateCcw,
+  ChevronDown, ChevronUp, BookOpen, Upload,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import Navbar            from '../components/layout/Navbar'
 import FileDropzone      from '../components/exam/FileDropzone'
+import CurriculumSelector from '../components/exam/CurriculumSelector'
 import PagesSelector     from '../components/summary/PagesSelector'
 import SummaryViewer     from '../components/summary/SummaryViewer'
 import SummaryDownloader from '../components/summary/SummaryDownloader'
 import LoadingMessages   from '../components/ui/LoadingMessages'
 import ErrorMessage      from '../components/ui/ErrorMessage'
 
-import { useAuthStore }        from '../store/authStore'
-import { useRequestsStore }    from '../store/requestsStore'
+import { useAuthStore }     from '../store/authStore'
+import { useRequestsStore } from '../store/requestsStore'
 import { checkQuota, incrementUsage, getMaxFileSizeMB } from '../services/quota'
-import { generateSummary }     from '../services/api'
-import { saveRequest }         from '../services/requests'
+import { generateSummary }  from '../services/api'
+import { saveRequest }      from '../services/requests'
+
+// ─── ثوابت ────────────────────────────────────────────────────────────────
+const INPUT_MODE = {
+  CURRICULUM: 'curriculum',
+  FILE:       'file',
+}
+
+const STAGE = { FORM: 'form', LOADING: 'loading', RESULT: 'result' }
 
 // ─── بطاقة قسم ────────────────────────────────────────────────────────────
 function SectionCard({ title, children }) {
@@ -38,60 +52,100 @@ function SectionCard({ title, children }) {
   )
 }
 
-// ─── مراحل الصفحة ─────────────────────────────────────────────────────────
-const STAGE = { FORM: 'form', LOADING: 'loading', RESULT: 'result' }
+// ─── زر التبديل بين الوضعين ───────────────────────────────────────────────
+function ModeTab({ active, onClick, icon, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all duration-200"
+      style={{
+        minHeight:       '44px',
+        fontFamily:      'Cairo, sans-serif',
+        backgroundColor: active ? '#FF6B35' : 'transparent',
+        color:           active ? '#fff' : '#8B949E',
+        border:          'none',
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
 
+// ─── SummaryPage ──────────────────────────────────────────────────────────
 export default function SummaryPage() {
-  const navigate  = useNavigate()
-  const { user }  = useAuthStore()
+  const navigate       = useNavigate()
+  const { user }       = useAuthStore()
   const { addRequest } = useRequestsStore()
 
-  // حالة النموذج
+  // ─── وضع الإدخال ────────────────────────────────────────────────────────
+  const [inputMode, setInputMode] = useState(INPUT_MODE.CURRICULUM)
+
+  // ─── حالة النموذج ───────────────────────────────────────────────────────
   const [requestName,   setRequestName]   = useState('')
+  const [curriculum,    setCurriculum]    = useState({ stage: '', grade: '', subject: '' })
   const [pdfBase64,     setPdfBase64]     = useState(null)
   const [pdfFileName,   setPdfFileName]   = useState('')
   const [selectedPages, setSelectedPages] = useState(1)
 
-  // حالة الصفحة
+  // ─── حالة الصفحة ────────────────────────────────────────────────────────
   const [stage,         setStage]         = useState(STAGE.FORM)
   const [summaryData,   setSummaryData]   = useState(null)
   const [error,         setError]         = useState(null)
-
-  // عرض النقاط الرئيسية
   const [showKeyPoints, setShowKeyPoints] = useState(true)
 
   const maxSizeMB = getMaxFileSizeMB(user?.plan || 'free')
 
-  // ─── اختيار الملف ────────────────────────────────────────────────────────
-  const handleFileSelect = (base64, fileName) => {
-    setPdfBase64(base64)
-    setPdfFileName(fileName)
+  // ─── تغيير وضع الإدخال ──────────────────────────────────────────────────
+  const handleModeChange = (mode) => {
+    setInputMode(mode)
+    setError(null)
+    if (mode === INPUT_MODE.CURRICULUM) {
+      setPdfBase64(null)
+      setPdfFileName('')
+    } else {
+      setCurriculum({ stage: '', grade: '', subject: '' })
+    }
   }
 
-  // ─── إعادة التعيين ────────────────────────────────────────────────────────
+  const handleFileSelect = (base64, fileName) => {
+    setPdfBase64(base64)
+    setPdfFileName(fileName || '')
+  }
+
+  // ─── validation ─────────────────────────────────────────────────────────
+  const isCurriculumValid =
+    curriculum.stage !== '' && curriculum.grade !== '' && curriculum.subject !== ''
+
+  const isFormValid =
+    requestName.trim() !== '' &&
+    (inputMode === INPUT_MODE.CURRICULUM ? isCurriculumValid : pdfBase64 !== null)
+
+  // ─── إعادة تعيين ────────────────────────────────────────────────────────
   const handleReset = () => {
     setPdfBase64(null)
     setPdfFileName('')
     setSelectedPages(1)
     setRequestName('')
+    setCurriculum({ stage: '', grade: '', subject: '' })
     setSummaryData(null)
     setError(null)
     setShowKeyPoints(true)
     setStage(STAGE.FORM)
   }
 
-  // ─── التحقق من المدخلات ──────────────────────────────────────────────────
-  const isFormValid = requestName.trim() && pdfBase64
-
-  // ─── التوليد الرئيسي ─────────────────────────────────────────────────────
+  // ─── التوليد ────────────────────────────────────────────────────────────
   const handleGenerate = async () => {
-    // التحقق الأساسي
     if (!requestName.trim()) {
       toast.error('أدخل اسماً للطلب')
       return
     }
-    if (!pdfBase64) {
+    if (inputMode === INPUT_MODE.FILE && !pdfBase64) {
       toast.error('ارفع ملف PDF أولاً')
+      return
+    }
+    if (inputMode === INPUT_MODE.CURRICULUM && !isCurriculumValid) {
+      toast.error('اختر المرحلة والصف والمادة')
       return
     }
     if (!user?.uid) {
@@ -118,38 +172,51 @@ export default function SummaryPage() {
         return
       }
 
-      // 2. توليد الملخص
+      // 2. بناء الـ options
       const targetWords = selectedPages * 280
       const options = {
         pages:       selectedPages,
         targetWords,
-        subject:     requestName.trim(),
+        subject:     inputMode === INPUT_MODE.CURRICULUM
+          ? curriculum.subject
+          : requestName.trim(),
+        ...(inputMode === INPUT_MODE.CURRICULUM
+          ? { grade: curriculum.grade, stage: curriculum.stage }
+          : {}
+        ),
       }
 
+      // pdfBase64 = null في وضع المنهج
+      const pdf = inputMode === INPUT_MODE.FILE ? pdfBase64 : null
+
+      // 3. توليد الملخص
       let result
       try {
-        result = await generateSummary(pdfBase64, options)
+        result = await generateSummary(pdf, options)
       } catch (e) {
         console.error('generateSummary error:', e)
         throw e
       }
 
-      // 3. خصم الرصيد
+      // 4. خصم الرصيد
       try {
         await incrementUsage(user.uid)
+        useAuthStore.getState().updateUsage({
+          count:   (user.dailyUsage?.count || 0) + 1,
+          resetAt: user.dailyUsage?.resetAt,
+        })
       } catch (e) {
         console.warn('incrementUsage error (non-fatal):', e)
       }
 
-      // 4. حفظ الطلب في Firestore
+      // 5. حفظ الطلب
       try {
         const saved = await saveRequest(user.uid, {
           name:    requestName.trim(),
           type:    'summary',
-          options: { pages: selectedPages, targetWords },
+          options: { pages: selectedPages, targetWords, ...options },
           result,
         })
-        // إضافة للـ store فوراً بدون انتظار Firestore
         addRequest({
           id:        saved,
           name:      requestName.trim(),
@@ -162,7 +229,7 @@ export default function SummaryPage() {
         console.warn('saveRequest error (non-fatal):', e)
       }
 
-      // 5. عرض النتيجة
+      // 6. عرض النتيجة
       setSummaryData(result)
       setStage(STAGE.RESULT)
 
@@ -173,7 +240,7 @@ export default function SummaryPage() {
     }
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   return (
     <div dir="rtl" className="min-h-screen" style={{ background: '#0D1117' }}>
       <Navbar />
@@ -186,8 +253,8 @@ export default function SummaryPage() {
             onClick={() => navigate('/dashboard')}
             className="flex items-center gap-1 text-sm transition-colors"
             style={{ color: '#8B949E' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#E6EDF3'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#8B949E'}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#E6EDF3')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#8B949E')}
           >
             <ArrowRight size={16} />
             الرئيسية
@@ -204,14 +271,13 @@ export default function SummaryPage() {
             تلخيص المادة
           </h1>
           <p className="text-sm" style={{ color: '#8B949E' }}>
-            ارفع ملف PDF واحصل على ملخص منظم ومركّز
+            اختر مادة من المنهج أو ارفع ملف PDF واحصل على ملخص منظم
           </p>
         </div>
 
-        {/* ══════════════════════════════════════════════
-            مرحلة النموذج
-        ══════════════════════════════════════════════ */}
         <AnimatePresence mode="wait">
+
+          {/* ══ مرحلة النموذج ══ */}
           {stage === STAGE.FORM && (
             <motion.div
               key="form"
@@ -231,23 +297,74 @@ export default function SummaryPage() {
                   maxLength={80}
                   className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-colors"
                   style={{
-                    background:   '#0D1117',
-                    border:       '1px solid #30363D',
-                    color:        '#E6EDF3',
-                    fontFamily:   'Noto Sans Arabic, sans-serif',
-                    minHeight:    '48px',
+                    background:  '#0D1117',
+                    border:      '1px solid #30363D',
+                    color:       '#E6EDF3',
+                    fontFamily:  'Noto Sans Arabic, sans-serif',
+                    minHeight:   '48px',
                   }}
                   onFocus={(e)  => (e.target.style.borderColor = '#FF6B35')}
                   onBlur={(e)   => (e.target.style.borderColor = '#30363D')}
                 />
               </SectionCard>
 
-              {/* رفع الملف */}
-              <SectionCard title="ملف المادة (PDF)">
-                <FileDropzone
-                  onFileSelect={handleFileSelect}
-                  maxSizeMB={maxSizeMB}
-                />
+              {/* مصدر المادة */}
+              <SectionCard title="مصدر المادة">
+                {/* Toggle */}
+                <div
+                  className="flex rounded-xl p-1 mb-5"
+                  style={{ backgroundColor: '#0D1117', border: '1px solid #30363D' }}
+                >
+                  <ModeTab
+                    active={inputMode === INPUT_MODE.CURRICULUM}
+                    onClick={() => handleModeChange(INPUT_MODE.CURRICULUM)}
+                    icon={<BookOpen className="w-4 h-4" />}
+                    label="اختيار من المنهج"
+                  />
+                  <ModeTab
+                    active={inputMode === INPUT_MODE.FILE}
+                    onClick={() => handleModeChange(INPUT_MODE.FILE)}
+                    icon={<Upload className="w-4 h-4" />}
+                    label="رفع ملف"
+                  />
+                </div>
+
+                {/* محتوى الوضع */}
+                <AnimatePresence mode="wait">
+                  {inputMode === INPUT_MODE.CURRICULUM ? (
+                    <motion.div
+                      key="curriculum"
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <CurriculumSelector
+                        value={curriculum}
+                        onChange={setCurriculum}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="file"
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <FileDropzone
+                        onFileSelect={handleFileSelect}
+                        maxSizeMB={maxSizeMB}
+                      />
+                      <p
+                        className="mt-3 text-xs"
+                        style={{ color: '#8B949E', fontFamily: 'Noto Sans Arabic, sans-serif' }}
+                      >
+                        💡 للجامعيين والمحاضرات الصغيرة — حد {maxSizeMB}MB
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </SectionCard>
 
               {/* عدد الصفحات */}
@@ -260,10 +377,7 @@ export default function SummaryPage() {
 
               {/* خطأ */}
               {error && (
-                <ErrorMessage
-                  message={error}
-                  onRetry={() => setError(null)}
-                />
+                <ErrorMessage message={error} onRetry={() => setError(null)} />
               )}
 
               {/* زر التوليد */}
@@ -284,12 +398,25 @@ export default function SummaryPage() {
                 <Sparkles size={20} />
                 لخّص المادة الآن
               </motion.button>
+
+              {/* تلميح */}
+              {!isFormValid && (
+                <p
+                  className="text-center text-xs"
+                  style={{ color: '#8B949E', fontFamily: 'Noto Sans Arabic, sans-serif' }}
+                >
+                  {!requestName.trim()
+                    ? 'يجب إدخال اسم الطلب'
+                    : inputMode === INPUT_MODE.CURRICULUM
+                      ? 'يجب اختيار المرحلة والصف والمادة'
+                      : 'يجب رفع ملف PDF'
+                  }
+                </p>
+              )}
             </motion.div>
           )}
 
-          {/* ══════════════════════════════════════════════
-              مرحلة التحميل
-          ══════════════════════════════════════════════ */}
+          {/* ══ مرحلة التحميل ══ */}
           {stage === STAGE.LOADING && (
             <motion.div
               key="loading"
@@ -302,9 +429,7 @@ export default function SummaryPage() {
             </motion.div>
           )}
 
-          {/* ══════════════════════════════════════════════
-              مرحلة النتيجة
-          ══════════════════════════════════════════════ */}
+          {/* ══ مرحلة النتيجة ══ */}
           {stage === STAGE.RESULT && summaryData && (
             <motion.div
               key="result"
@@ -323,13 +448,12 @@ export default function SummaryPage() {
                 </h2>
 
                 <div className="flex items-center gap-3">
-                  {/* إظهار / إخفاء النقاط */}
                   <button
                     onClick={() => setShowKeyPoints((v) => !v)}
                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                     style={{
                       background: showKeyPoints ? 'rgba(255,107,53,0.12)' : '#161B22',
-                      color:      showKeyPoints ? '#FF6B35'               : '#8B949E',
+                      color:      showKeyPoints ? '#FF6B35' : '#8B949E',
                       border:     `1px solid ${showKeyPoints ? 'rgba(255,107,53,0.3)' : '#30363D'}`,
                       minHeight:  '40px',
                     }}
@@ -338,7 +462,6 @@ export default function SummaryPage() {
                     {showKeyPoints ? 'إخفاء النقاط الرئيسية' : 'إظهار النقاط الرئيسية'}
                   </button>
 
-                  {/* طلب جديد */}
                   <button
                     onClick={handleReset}
                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
@@ -348,8 +471,8 @@ export default function SummaryPage() {
                       border:     '1px solid #30363D',
                       minHeight:  '40px',
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = '#E6EDF3'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = '#8B949E'}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#E6EDF3')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#8B949E')}
                   >
                     <RotateCcw size={15} />
                     طلب جديد
@@ -357,34 +480,29 @@ export default function SummaryPage() {
                 </div>
               </div>
 
-              {/* أزرار التحميل (فوق) */}
               <SummaryDownloader summaryData={summaryData} summaryName={requestName} />
-
-              {/* الملخص */}
               <SummaryViewer summaryData={summaryData} showKeyPoints={showKeyPoints} />
-
-              {/* أزرار التحميل (تحت) */}
               <SummaryDownloader summaryData={summaryData} summaryName={requestName} />
 
-              {/* زر العودة */}
               <button
                 onClick={() => navigate('/dashboard')}
                 className="flex items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors mx-auto"
                 style={{
-                  minHeight: '44px',
-                  padding:   '0 24px',
+                  minHeight:  '44px',
+                  padding:    '0 24px',
                   background: 'transparent',
                   color:      '#8B949E',
                   border:     '1px solid #30363D',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#E6EDF3'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#8B949E'}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#E6EDF3')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#8B949E')}
               >
                 <ArrowRight size={16} />
                 العودة للرئيسية
               </button>
             </motion.div>
           )}
+
         </AnimatePresence>
       </div>
     </div>
